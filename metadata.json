@@ -1,0 +1,6 @@
+{
+  "name": "Event Operations Hub",
+  "description": "Real-time Event Operations & Coordination App designed to solve cross-organization logistics friction between event organizers, host venues, presenters, and check-in staff.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
