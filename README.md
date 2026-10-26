@@ -156,3 +156,13 @@ GitHub: [@Suraj7ai](https://github.com/Suraj7ai)
 <div align="center">
   <sub>Built to learn, iterate, and make operational work easier to reason about.</sub>
 </div>
+
+
+## AngularJS companion frontend
+
+Want to see the same event-operations idea demonstrated with legacy AngularJS? A separate, standalone **AngularJS 1.8.3** frontend now lives in [`angularjs-frontend/`](angularjs-frontend/README.md). It includes an interactive operations dashboard, work-order status changes, attendee check-in, room readiness toggles, and incident tracking.
+
+- [Open the AngularJS demo source](angularjs-frontend/index.html)
+- [Read setup and implementation notes](angularjs-frontend/README.md)
+
+This is an independent learning/demo frontend; it does not replace the React + TypeScript app or share its data. AngularJS 1.x is end-of-life and is included here specifically to demonstrate legacy AngularJS familiarity, not as a recommendation for new production work.
