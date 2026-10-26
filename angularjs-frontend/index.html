@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en" ng-app="eventOpsApp">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Event Operations Hub · AngularJS Edition</title>
+  <meta name="description" content="An AngularJS 1.x frontend demo for event operations, work orders, attendee check-in, rooms and incidents.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
+  <script src="app.js"></script>
+</head>
+<body ng-controller="DashboardController as vm">
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="#" ng-click="vm.setView('overview')">
+        <span class="brand-mark">EO</span>
+        <span><strong>OPS<span class="brand-dot">.</span>HUB</strong><small>EVENT CONTROL PLANE</small></span>
+      </a>
+      <div class="side-label">WORKSPACE</div>
+      <nav>
+        <button ng-class="{active: vm.view === 'overview'}" ng-click="vm.setView('overview')"><span>▦</span> Overview</button>
+        <button ng-class="{active: vm.view === 'work'}" ng-click="vm.setView('work')"><span>◫</span> Work orders <i>{{vm.openWorkCount()}}</i></button>
+        <button ng-class="{active: vm.view === 'attendees'}" ng-click="vm.setView('attendees')"><span>◎</span> Attendees</button>
+        <button ng-class="{active: vm.view === 'rooms'}" ng-click="vm.setView('rooms')"><span>▤</span> Room readiness</button>
+        <button ng-class="{active: vm.view === 'incidents'}" ng-click="vm.setView('incidents')"><span>⌁</span> Incidents <i>{{vm.openIncidentCount()}}</i></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="system-card"><span class="pulse"></span><div><strong>Demo environment</strong><small>Local browser state</small></div></div>
+        <div class="profile"><div class="avatar">SN</div><div><strong>Suraj Nandavarapu</strong><small>Project maintainer</small></div></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div><div class="eyebrow">OPERATIONS / <span>{{vm.viewLabel()}}</span></div><h1>{{vm.pageTitle()}}</h1></div>
+        <div class="top-actions"><span class="live-pill"><span class="pulse"></span> DEMO LIVE</span><button class="ghost-btn" ng-click="vm.resetDemo()">Reset demo</button></div>
+      </header>
+
+      <section class="hero" ng-if="vm.view === 'overview'">
+        <div class="hero-copy">
+          <div class="hero-kicker"><span class="tiny-star">✳</span> EVENT COMMAND CENTER <span class="hero-date">· {{vm.today}}</span></div>
+          <h2>Every moving part.<br><em>One clear picture.</em></h2>
+          <p>Coordinate people, places, schedules and issues from a single operational workspace.</p>
+          <button class="primary-btn" ng-click="vm.setView('work')">Review work orders <span>↗</span></button>
+        </div>
+        <div class="orbit">
+          <div class="orbit-ring ring-one"></div><div class="orbit-ring ring-two"></div>
+          <div class="orbit-core">EO<span>HUB</span></div>
+          <div class="orbit-node node-a">TASKS</div><div class="orbit-node node-b">PEOPLE</div><div class="orbit-node node-c">ROOMS</div><div class="orbit-node node-d">ALERTS</div>
+        </div>
+        <div class="hero-foot"><span>EVENT</span><strong>{{vm.event.name}}</strong><span class="divider"></span><span>VENUE</span><strong>{{vm.event.venue}}</strong><span class="divider"></span><span class="status-tag">{{vm.event.status}}</span></div>
+      </section>
+
+      <section class="stats-grid" ng-if="vm.view === 'overview'">
+        <article class="stat-card"><div class="stat-top"><span>WORK ORDERS</span><span class="stat-icon purple">↗</span></div><strong>{{vm.workOrders.length | numberFixed}}</strong><div class="stat-bottom"><span class="dot amber"></span>{{vm.openWorkCount()}} need attention</div></article>
+        <article class="stat-card"><div class="stat-top"><span>ATTENDEES</span><span class="stat-icon blue">◎</span></div><strong>{{vm.attendees.length | numberFixed}}</strong><div class="stat-bottom"><span class="dot green"></span>{{vm.checkedInCount()}} checked in</div></article>
+        <article class="stat-card"><div class="stat-top"><span>ROOMS READY</span><span class="stat-icon mint">▤</span></div><strong>{{vm.readyRoomCount()}}<small> / {{vm.rooms.length}}</small></strong><div class="stat-bottom">Readiness status from demo data</div></article>
+        <article class="stat-card"><div class="stat-top"><span>OPEN INCIDENTS</span><span class="stat-icon orange">⌁</span></div><strong>{{vm.openIncidentCount() | numberFixed}}</strong><div class="stat-bottom"><span class="dot" ng-class="vm.openIncidentCount() ? 'red' : 'green'"></span>{{vm.openIncidentCount() ? 'Requires review' : 'All clear'}}</div></article>
+      </section>
+
+      <section class="content-grid" ng-if="vm.view === 'overview'">
+        <article class="panel wide-panel">
+          <div class="panel-heading"><div><div class="eyebrow">LIVE QUEUE</div><h3>Work orders</h3></div><button class="text-btn" ng-click="vm.setView('work')">View all ↗</button></div>
+          <div class="table-wrap"><table><thead><tr><th>ITEM</th><th>ASSIGNEE</th><th>PRIORITY</th><th>STATUS</th></tr></thead><tbody>
+            <tr ng-repeat="task in vm.workOrders | limitTo:4 track by task.id"><td><strong>{{task.title}}</strong><small>{{task.id}} · {{task.area}}</small></td><td>{{task.assignee}}</td><td><span class="priority" ng-class="task.priority.toLowerCase()">{{task.priority}}</span></td><td><button class="status-button" ng-class="vm.statusClass(task.status)" ng-click="vm.cycleTask(task)">{{task.status}} ↻</button></td></tr>
+          </tbody></table></div>
+        </article>
+        <article class="panel activity-panel">
+          <div class="panel-heading"><div><div class="eyebrow">AT A GLANCE</div><h3>Room readiness</h3></div><button class="text-btn" ng-click="vm.setView('rooms')">Details ↗</button></div>
+          <div class="room-mini" ng-repeat="room in vm.rooms"><div class="room-icon">▤</div><div class="room-info"><strong>{{room.name}}</strong><small>{{room.note}}</small></div><span class="room-state" ng-class="room.ready ? 'ready' : 'pending'">{{room.ready ? 'READY' : 'CHECK'}}</span></div>
+        </article>
+        <article class="panel incidents-panel">
+          <div class="panel-heading"><div><div class="eyebrow">NEEDS ATTENTION</div><h3>Incident feed</h3></div><button class="text-btn" ng-click="vm.setView('incidents')">Open feed ↗</button></div>
+          <div class="incident-row" ng-repeat="incident in vm.incidents | limitTo:3 track by incident.id"><span class="incident-mark" ng-class="incident.severity.toLowerCase()">!</span><div><strong>{{incident.title}}</strong><small>{{incident.area}} · {{incident.time}}</small></div><span class="incident-state">{{incident.status}}</span></div>
+          <div class="empty-state" ng-if="!vm.incidents.length">No incidents in the demo. You're all clear.</div>
+        </article>
+        <article class="panel attendees-panel">
+          <div class="panel-heading"><div><div class="eyebrow">FRONT DESK</div><h3>Attendee check-in</h3></div><button class="text-btn" ng-click="vm.setView('attendees')">Manage ↗</button></div>
+          <div class="checkin-progress"><div><strong>{{vm.checkedInCount()}} <small>/ {{vm.attendees.length}} checked in</small></strong><span>{{vm.checkInPercent()}}%</span></div><div class="progress-track"><span ng-style="{width: vm.checkInPercent() + '%'}"></span></div></div>
+          <div class="attendee-mini" ng-repeat="person in vm.attendees | limitTo:3 track by person.id"><div class="avatar small-avatar">{{person.initials}}</div><div><strong>{{person.name}}</strong><small>{{person.company}}</small></div><button ng-if="person.status !== 'Checked in'" class="mini-action" ng-click="vm.checkIn(person)">Check in</button><span ng-if="person.status === 'Checked in'" class="checked-label">✓ Checked in</span></div>
+        </article>
+      </section>
+
+      <section class="panel page-panel" ng-if="vm.view === 'work'">
+        <div class="panel-heading"><div><div class="eyebrow">TASK MANAGEMENT</div><h3>Work order queue</h3><p class="muted">Select a status to move a task through the demo workflow.</p></div></div>
+        <div class="table-wrap"><table><thead><tr><th>WORK ORDER</th><th>AREA</th><th>ASSIGNEE</th><th>PRIORITY</th><th>STATUS</th></tr></thead><tbody><tr ng-repeat="task in vm.workOrders track by task.id"><td><strong>{{task.title}}</strong><small>{{task.id}}</small></td><td>{{task.area}}</td><td>{{task.assignee}}</td><td><span class="priority" ng-class="task.priority.toLowerCase()">{{task.priority}}</span></td><td><button class="status-button" ng-class="vm.statusClass(task.status)" ng-click="vm.cycleTask(task)">{{task.status}} ↻</button></td></tr></tbody></table></div>
+        <p class="hint">Tip: click any status button to cycle through Pending → In progress → Verified.</p>
+      </section>
+
+      <section class="panel page-panel" ng-if="vm.view === 'attendees'">
+        <div class="panel-heading"><div><div class="eyebrow">REGISTRATION & ACCESS</div><h3>Attendee directory</h3><p class="muted">Search demo attendees and check people in at the front desk.</p></div><div class="search-box"><span>⌕</span><input ng-model="vm.attendeeQuery" placeholder="Search name or company..." aria-label="Search attendees"></div></div>
+        <div class="table-wrap"><table><thead><tr><th>ATTENDEE</th><th>COMPANY</th><th>ROLE</th><th>TICKET</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody><tr ng-repeat="person in vm.attendees | filter:vm.attendeeQuery track by person.id"><td><div class="person-cell"><div class="avatar small-avatar">{{person.initials}}</div><strong>{{person.name}}</strong></div></td><td>{{person.company}}</td><td>{{person.role}}</td><td><code>{{person.ticket}}</code></td><td><span class="status-button" ng-class="person.status === 'Checked in' ? 'verified' : 'pending'">{{person.status}}</span></td><td><button ng-if="person.status !== 'Checked in'" class="mini-action" ng-click="vm.checkIn(person)">Check in</button><span ng-if="person.status === 'Checked in'" class="checked-label">✓ Done</span></td></tr></tbody></table></div>
+      </section>
+
+      <section class="room-grid" ng-if="vm.view === 'rooms'">
+        <article class="panel room-card" ng-repeat="room in vm.rooms"><div class="room-card-top"><div class="room-icon big-room-icon">▤</div><span class="room-state" ng-class="room.ready ? 'ready' : 'pending'">{{room.ready ? 'READY' : 'CHECK REQUIRED'}}</span></div><div class="eyebrow">VENUE / {{room.code}}</div><h3>{{room.name}}</h3><p class="muted">{{room.note}}</p><div class="room-meter"><div><span>Readiness</span><strong>{{room.readiness}}%</strong></div><div class="progress-track"><span ng-style="{width: room.readiness + '%'}"></span></div></div><button class="secondary-btn" ng-click="vm.toggleRoom(room)">{{room.ready ? 'Mark as needs check' : 'Mark room ready'}}</button></article>
+      </section>
+
+      <section class="content-grid single-grid" ng-if="vm.view === 'incidents'">
+        <article class="panel incident-form-panel"><div class="panel-heading"><div><div class="eyebrow">INCIDENT MANAGEMENT</div><h3>Report an incident</h3><p class="muted">Add a sample issue to the local demo feed.</p></div></div>
+          <form ng-submit="vm.addIncident()" class="incident-form"><label>Issue summary<input ng-model="vm.newIncident.title" required maxlength="100" placeholder="e.g. Projector signal lost"></label><div class="form-row"><label>Area<input ng-model="vm.newIncident.area" required maxlength="50" placeholder="e.g. Main stage"></label><label>Severity<select ng-model="vm.newIncident.severity"><option>Low</option><option>Medium</option><option>High</option></select></label></div><button class="primary-btn" type="submit">+ Add incident</button></form>
+        </article>
+        <article class="panel incident-feed-panel"><div class="panel-heading"><div><div class="eyebrow">INCIDENT LOG</div><h3>Current incidents <span class="count-pill">{{vm.incidents.length}}</span></h3></div></div>
+          <div class="incident-row large-incident" ng-repeat="incident in vm.incidents track by incident.id"><span class="incident-mark" ng-class="incident.severity.toLowerCase()">!</span><div class="incident-details"><strong>{{incident.title}}</strong><small>{{incident.area}} · {{incident.time}} · {{incident.severity}} severity</small></div><button class="status-button" ng-class="incident.status === 'Resolved' ? 'verified' : 'pending'" ng-click="vm.resolveIncident(incident)">{{incident.status === 'Resolved' ? 'Resolved ✓' : 'Resolve'}}</button></div>
+          <div class="empty-state" ng-if="!vm.incidents.length">No incidents have been reported. Use the form to add one.</div>
+        </article>
+      </section>
+
+      <footer class="footer"><span>EOH / ANGULARJS EDITION</span><span>Independent frontend demo · Sample data only</span><span>Built for learning & iteration</span></footer>
+    </main>
+  </div>
+</body>
+</html>
