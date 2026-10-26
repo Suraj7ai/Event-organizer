@@ -1,25 +1,29 @@
-import React, { useState, useEffect } from "react";
-import { Attendee, UserRole } from "../types";
+import React, { useState } from "react";
+import { Attendee, UserRole, AttendeeRole } from "../types";
 import { 
   Users, 
   QrCode, 
   AlertOctagon, 
   UserCheck, 
   TrendingUp, 
-  UserMinus, 
-  Sparkles, 
   Plus, 
-  Info,
-  Timer,
-  Zap,
-  HelpCircle
+  Timer, 
+  Zap, 
+  Search, 
+  Printer, 
+  ShieldCheck, 
+  Check, 
+  X,
+  Building2,
+  Clock
 } from "lucide-react";
 
 interface CheckInDeskProps {
   attendees: Attendee[];
   currentUserRole: UserRole;
   onCheckInAttendee: (id: string) => void;
-  onRegisterNewAttendee: (name: string, email: string, company: string) => void;
+  onRegisterNewAttendee: (name: string, email: string, company: string, role?: AttendeeRole) => void;
+  onOpenBadge: (attendee: Attendee) => void;
 }
 
 export default function CheckInDesk({
@@ -27,17 +31,23 @@ export default function CheckInDesk({
   currentUserRole,
   onCheckInAttendee,
   onRegisterNewAttendee,
+  onOpenBadge,
 }: CheckInDeskProps) {
   // Queue state
   const [activeQueueLength, setActiveQueueLength] = useState(3);
   const [isAlertAcknowledged, setIsAlertAcknowledged] = useState(false);
-  const [activeTicket, setActiveTicket] = useState<Attendee | null>(null);
+  const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(attendees[0] || null);
 
-  // Form
+  // Search and filter
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("All");
+
+  // Registration modal form state
+  const [showAddForm, setShowAddForm] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [role, setRole] = useState<AttendeeRole>("Attendee");
 
   // Wait time calculations
   const waitTimePerPersonMinutes = 1.8;
@@ -46,18 +56,18 @@ export default function CheckInDesk({
 
   const handleRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !company) return;
-    onRegisterNewAttendee(name, email, company);
+    if (!name.trim() || !email.trim() || !company.trim()) return;
+    onRegisterNewAttendee(name, email, company, role);
     setName("");
     setEmail("");
     setCompany("");
+    setRole("Attendee");
     setShowAddForm(false);
-    // Add to simulated queue length
-    setActiveQueueLength(prev => prev + 1);
+    setActiveQueueLength((prev) => prev + 1);
   };
 
   const handleBurstQueue = () => {
-    setActiveQueueLength(prev => prev + 6);
+    setActiveQueueLength((prev) => prev + 6);
     setIsAlertAcknowledged(false);
   };
 
@@ -69,9 +79,8 @@ export default function CheckInDesk({
   const handleScanCheckIn = (attendee: Attendee) => {
     if (attendee.status === "Checked-in") return;
     onCheckInAttendee(attendee.id);
-    setActiveTicket(null);
     if (activeQueueLength > 0) {
-      setActiveQueueLength(prev => prev - 1);
+      setActiveQueueLength((prev) => prev - 1);
     }
   };
 
@@ -79,33 +88,54 @@ export default function CheckInDesk({
   const totalRSVPs = attendees.length;
   const percentCheckedIn = totalRSVPs > 0 ? Math.round((checkedInCount / totalRSVPs) * 100) : 0;
 
+  const filteredAttendees = attendees.filter((a) => {
+    const matchesRole = roleFilter === "All" || a.role === roleFilter;
+    const matchesSearch = 
+      a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.ticketCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.email.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesRole && matchesSearch;
+  });
+
+  const getRoleStyle = (r: AttendeeRole) => {
+    switch (r) {
+      case "Speaker": return "text-[#1a73e8] bg-[#e8f0fe] border-[#aecbfa]";
+      case "VIP": return "text-[#b06000] bg-[#fef7e0] border-[#fdd663]";
+      case "Staff": return "text-[#0d652d] bg-[#ceead6] border-[#81c995]";
+      default: return "text-[#5f6368] bg-[#f1f3f4] border-[#dadce0]";
+    }
+  };
+
   return (
-    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full" id="check-in-desk-section">
-      {/* Alert Header */}
+    <div className="space-y-4">
+      {/* SLA Queue Alert Banner */}
       {isWaitTimeCritical && !isAlertAcknowledged && (
-        <div className="bg-rose-600 text-white p-4 flex items-center justify-between gap-4 animate-bounce-short">
+        <div className="bg-[#d93025] text-white p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md animate-in slide-in-from-top-2">
           <div className="flex items-center gap-3">
-            <div className="bg-white text-rose-600 p-1.5 rounded-full">
-              <AlertOctagon className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+              <AlertOctagon className="w-5 h-5 text-white" />
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest">🚨 Queue Congestion Alert (Critical wait time: {currentWaitTime} minutes)</p>
-              <p className="text-xs mt-0.5 opacity-90">
-                Wait times exceed 5-minute SLAs. Automating dispatch pager alert to host Venue Admin (Google Facilities) and on-site Volunteers.
+              <p className="text-xs font-bold uppercase tracking-wider">
+                Registration Queue Congestion Alert — {currentWaitTime} Min Est. Wait
+              </p>
+              <p className="text-xs text-white/90 mt-0.5">
+                Front desk wait time exceeds 5-minute SLA. Volunteer roaming busters needed.
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleDispatchBusters}
-              className="bg-white text-rose-700 hover:bg-rose-50 text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-sm transition-colors flex items-center gap-1"
+              className="bg-white text-[#d93025] hover:bg-slate-100 text-xs font-semibold px-3 py-1.5 rounded-lg shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
             >
               <Zap className="w-3.5 h-3.5" />
               Dispatch Queue Busters
             </button>
             <button
               onClick={() => setIsAlertAcknowledged(true)}
-              className="bg-rose-700 text-white hover:bg-rose-800 text-[11px] font-medium px-2.5 py-1.5 rounded-xl border border-rose-500/30 transition-colors"
+              className="bg-[#b31412] text-white hover:bg-[#8e0000] text-xs font-medium px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
             >
               Acknowledge
             </button>
@@ -113,234 +143,291 @@ export default function CheckInDesk({
         </div>
       )}
 
-      <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-slate-50/20">
-        <div>
-          <h2 className="text-xl font-display font-bold tracking-tight text-slate-800 flex items-center gap-2">
-            <Users className="w-5 h-5 text-indigo-600" />
-            Smart Check-In & Queue Management Desk
-          </h2>
-          <p className="text-xs text-slate-500 mt-1 font-medium">
-            Rapid contactless attendee onboarding and live traffic monitoring with automated wait-time alerts.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Direct Add Attendee
-          </button>
-          <button
-            onClick={handleBurstQueue}
-            className="bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-1.5 rounded-xl text-xs font-bold border border-rose-200 flex items-center gap-1 transition-colors"
-            title="Simulate sudden arrival of 6 hackathon attendees at check-in"
-          >
-            <TrendingUp className="w-3.5 h-3.5 text-rose-500" />
-            Simulate Rush Hour Burst (+6)
-          </button>
-        </div>
-      </div>
-
-      {/* Grid panels */}
-      <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Panel 1: Live Status & Wait indicators */}
-        <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-4 shadow-2xs">
-          <h3 className="text-sm font-bold text-slate-800">Traffic Monitoring Console</h3>
-
-          {/* Wait Meter Box */}
-          <div className={`p-4 rounded-xl border flex items-center justify-between gap-3 shadow-2xs ${
-            isWaitTimeCritical 
-              ? "bg-rose-50/70 border-rose-200 text-rose-900" 
-              : "bg-emerald-50/70 border-emerald-100 text-emerald-900"
-          }`}>
-            <div>
-              <span className="text-[10px] uppercase font-bold tracking-widest opacity-85">Registration Queue</span>
-              <span className="block text-2xl font-mono font-bold mt-1">
-                {activeQueueLength} <span className="text-xs font-sans font-medium text-slate-500">people</span>
-              </span>
+      {/* Main Container Card */}
+      <div className="bg-white rounded-2xl border border-[#dadce0] p-6 shadow-2xs space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#dadce0]">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-[#1a73e8] text-white flex items-center justify-center">
+                <Users className="w-4 h-4" />
+              </div>
+              <h2 className="text-base font-semibold text-[#202124]">
+                Check-In Desk & Badge Issuance
+              </h2>
             </div>
-            <div className="text-right">
-              <span className="text-[10px] uppercase font-bold tracking-widest opacity-85 flex items-center gap-1 justify-end">
-                <Timer className="w-3.5 h-3.5" />
-                Est. Wait Time
-              </span>
-              <span className={`block text-2xl font-mono font-bold mt-1 ${isWaitTimeCritical ? "text-rose-600 animate-pulse" : "text-emerald-700"}`}>
-                {currentWaitTime} <span className="text-xs font-sans font-medium text-slate-500">mins</span>
-              </span>
-            </div>
+            <p className="text-xs text-[#5f6368] mt-1">
+              Rapid attendee verification, QR credentials, wait-time telemetry, and printable conference passes
+            </p>
           </div>
 
-          {/* Progress Bar expected vs checked */}
-          <div className="space-y-2 pt-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-slate-700">Check-in Progress</span>
-              <span className="font-mono text-indigo-600 font-bold">{percentCheckedIn}% ({checkedInCount}/{totalRSVPs})</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="px-3.5 py-1.5 rounded-lg border border-[#dadce0] bg-white text-[#202124] hover:bg-[#f1f3f4] text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            >
+              <Plus className="w-3.5 h-3.5 text-[#1a73e8]" />
+              <span>Walk-in Registration</span>
+            </button>
+            <button
+              onClick={handleBurstQueue}
+              className="px-3.5 py-1.5 rounded-lg border border-[#fce8e6] bg-[#fef7e0]/50 text-[#b06000] hover:bg-[#fef7e0] text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Simulate sudden arrival of 6 attendees"
+            >
+              <TrendingUp className="w-3.5 h-3.5 text-[#ea8600]" />
+              <span>Simulate Peak Rush (+6)</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 3 Metrics Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <div className="p-4 rounded-xl border border-[#e8eaed] bg-[#f8f9fa]">
+            <span className="text-[11px] text-[#5f6368] font-medium block">Check-in Completion</span>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-2xl font-bold font-mono text-[#202124]">{percentCheckedIn}%</span>
+              <span className="text-xs text-[#5f6368] font-mono">({checkedInCount}/{totalRSVPs})</span>
             </div>
-            <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+            <div className="w-full bg-[#e8eaed] h-1.5 rounded-full mt-2.5 overflow-hidden">
               <div 
-                className="h-full bg-indigo-600 rounded-full transition-all duration-500" 
+                className="bg-[#1e8e3e] h-full rounded-full transition-all duration-300"
                 style={{ width: `${percentCheckedIn}%` }}
               />
             </div>
-            <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium">
-              <span>Expected Capacity: {totalRSVPs}</span>
-              <span>Available Seats Remaining: {totalRSVPs - checkedInCount}</span>
+          </div>
+
+          <div className="p-4 rounded-xl border border-[#e8eaed] bg-[#f8f9fa]">
+            <span className="text-[11px] text-[#5f6368] font-medium block">Front Desk Queue</span>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-2xl font-bold font-mono text-[#202124]">{activeQueueLength}</span>
+              <span className="text-xs text-[#5f6368]">people waiting</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] text-[#1e8e3e] font-medium mt-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#1e8e3e]" />
+              <span>2 Check-in Kiosks Active</span>
             </div>
           </div>
 
-          {/* Direct Input Registration Form */}
-          {showAddForm && (
-            <form onSubmit={handleRegisterSubmit} className="bg-white p-3.5 rounded-xl border border-slate-250 space-y-3 shadow-2xs">
-              <span className="text-xs font-bold text-slate-800 block">Register Guest On-Site</span>
+          <div className="p-4 rounded-xl border border-[#e8eaed] bg-[#f8f9fa]">
+            <span className="text-[11px] text-[#5f6368] font-medium block">Estimated Wait Time</span>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className={`text-2xl font-bold font-mono ${isWaitTimeCritical ? "text-[#d93025]" : "text-[#137333]"}`}>
+                {currentWaitTime} mins
+              </span>
+              <span className="text-[11px] text-[#70757a]">avg 1.8m/attendee</span>
+            </div>
+            <p className="text-[11px] text-[#70757a] mt-2 font-mono">SLA Target: &lt; 5.0 mins</p>
+          </div>
+        </div>
+
+        {/* Filter & Search Bar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs pt-1">
+          <div className="flex items-center gap-1 bg-[#f1f3f4] p-1 rounded-xl overflow-x-auto">
+            {(["All", "Attendee", "VIP", "Speaker", "Staff"] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => setRoleFilter(r)}
+                className={`px-3 py-1 font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+                  roleFilter === r
+                    ? "bg-white text-[#202124] shadow-xs"
+                    : "text-[#5f6368] hover:text-[#202124]"
+                }`}
+              >
+                {r === "All" ? "All Credentials" : r}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative min-w-[240px]">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#70757a]" />
+            <input
+              type="text"
+              placeholder="Search by name, company, or ticket code..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 bg-white border border-[#dadce0] rounded-lg text-xs text-[#202124] placeholder-[#70757a] focus:outline-none focus:border-[#1a73e8]"
+            />
+          </div>
+        </div>
+
+        {/* Attendee Table */}
+        <div className="border border-[#e8eaed] rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="bg-[#f8f9fa] border-b border-[#e8eaed] text-[#5f6368] uppercase tracking-wider text-[10px] font-semibold">
+                  <th className="py-2.5 px-4">Attendee Name</th>
+                  <th className="py-2.5 px-4">Company / Org</th>
+                  <th className="py-2.5 px-4 font-mono">Ticket Code</th>
+                  <th className="py-2.5 px-4">Role</th>
+                  <th className="py-2.5 px-4">Status & Time</th>
+                  <th className="py-2.5 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#e8eaed]">
+                {filteredAttendees.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-[#5f6368]">
+                      No attendees found matching filter.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredAttendees.map((att) => {
+                    const isChecked = att.status === "Checked-in";
+                    return (
+                      <tr key={att.id} className="hover:bg-[#f8f9fa]/80 transition-colors">
+                        <td className="py-3 px-4">
+                          <div className="font-semibold text-[#202124]">{att.name}</div>
+                          <div className="text-[11px] text-[#70757a]">{att.email}</div>
+                        </td>
+                        <td className="py-3 px-4 font-medium text-[#3c4043]">
+                          {att.company}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-[#5f6368] font-medium">
+                          {att.ticketCode}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getRoleStyle(att.role)}`}>
+                            {att.role}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          {isChecked ? (
+                            <span className="flex items-center gap-1 text-[#137333] font-medium text-[11px]">
+                              <UserCheck className="w-3.5 h-3.5 text-[#1e8e3e]" />
+                              <span>Checked-in {att.checkInTime ? `(${att.checkInTime})` : ""}</span>
+                            </span>
+                          ) : (
+                            <span className="text-[#70757a] text-[11px]">
+                              Not Checked In
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {!isChecked ? (
+                              <button
+                                onClick={() => handleScanCheckIn(att)}
+                                className="px-2.5 py-1 bg-[#1a73e8] hover:bg-[#174ea6] text-white font-medium rounded-lg text-xs flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Check-in</span>
+                              </button>
+                            ) : (
+                              <span className="text-[11px] text-[#1e8e3e] font-medium px-2 py-1">
+                                Verified
+                              </span>
+                            )}
+                            <button
+                              onClick={() => onOpenBadge(att)}
+                              className="px-2.5 py-1 bg-white border border-[#dadce0] hover:bg-[#f1f3f4] text-[#3c4043] font-medium rounded-lg text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                              title="Generate print-ready badge"
+                            >
+                              <Printer className="w-3.5 h-3.5 text-[#1a73e8]" />
+                              <span>Badge</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Walk-in Registration Modal */}
+      {showAddForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div 
+            className="bg-white rounded-2xl shadow-2xl border border-[#dadce0] max-w-md w-full overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-[#dadce0] flex items-center justify-between bg-[#f8f9fa]">
+              <div className="flex items-center gap-2">
+                <Plus className="w-4 h-4 text-[#1a73e8]" />
+                <h3 className="text-sm font-semibold text-[#202124]">Walk-In Guest Registration</h3>
+              </div>
+              <button
+                onClick={() => setShowAddForm(false)}
+                className="p-1 text-[#5f6368] hover:text-[#202124] rounded-full hover:bg-[#e8eaed]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleRegisterSubmit} className="p-6 space-y-3.5 text-xs">
               <div>
+                <label className="block font-medium text-[#202124] mb-1">Full Name</label>
                 <input
                   type="text"
                   required
+                  placeholder="e.g. Jane Doe"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Full Name"
-                  className="w-full bg-slate-50 border border-slate-200 rounded px-2.5 py-1 text-xs focus:bg-white"
+                  className="w-full px-3 py-2 border border-[#dadce0] rounded-lg text-xs focus:outline-none focus:border-[#1a73e8]"
                 />
               </div>
+
               <div>
+                <label className="block font-medium text-[#202124] mb-1">Email Address</label>
                 <input
                   type="email"
                   required
+                  placeholder="e.g. jane.doe@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email"
-                  className="w-full bg-slate-50 border border-slate-200 rounded px-2.5 py-1 text-xs focus:bg-white"
+                  className="w-full px-3 py-2 border border-[#dadce0] rounded-lg text-xs focus:outline-none focus:border-[#1a73e8]"
                 />
               </div>
+
               <div>
+                <label className="block font-medium text-[#202124] mb-1">Organization / Company</label>
                 <input
                   type="text"
                   required
+                  placeholder="e.g. Google Developers / University"
                   value={company}
                   onChange={(e) => setCompany(e.target.value)}
-                  placeholder="Company / University"
-                  className="w-full bg-slate-50 border border-slate-200 rounded px-2.5 py-1 text-xs focus:bg-white"
+                  className="w-full px-3 py-2 border border-[#dadce0] rounded-lg text-xs focus:outline-none focus:border-[#1a73e8]"
                 />
               </div>
-              <div className="flex justify-end gap-1.5 pt-1">
+
+              <div>
+                <label className="block font-medium text-[#202124] mb-1">Access Credential Role</label>
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as AttendeeRole)}
+                  className="w-full px-3 py-2 border border-[#dadce0] rounded-lg text-xs focus:outline-none focus:border-[#1a73e8] bg-white"
+                >
+                  <option value="Attendee">Attendee</option>
+                  <option value="VIP">VIP Guest</option>
+                  <option value="Speaker">Speaker</option>
+                  <option value="Staff">Staff / Operations</option>
+                </select>
+              </div>
+
+              <div className="pt-3 border-t border-[#dadce0] flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="text-[10px] text-slate-500 hover:text-slate-900 px-1 font-semibold"
+                  className="px-4 py-2 border border-[#dadce0] rounded-lg text-[#3c4043] hover:bg-[#f1f3f4] transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-2xs"
+                  className="px-4 py-2 bg-[#1a73e8] hover:bg-[#174ea6] text-white font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
                 >
-                  Submit
+                  Issue Pass & Check-In
                 </button>
               </div>
             </form>
-          )}
-        </div>
-
-        {/* Panel 2: Register & QR generator */}
-        <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex flex-col justify-between shadow-2xs">
-          <div>
-            <h3 className="text-sm font-bold text-slate-800 mb-2">QR Code Ticket Generator</h3>
-            <p className="text-[11px] text-slate-500 mb-4 leading-normal font-medium">
-              Select any registered attendee from the list to display their visual check-in credential and scan ticket.
-            </p>
-
-            {activeTicket ? (
-              <div className="bg-white p-4 rounded-xl border border-slate-200 text-center flex flex-col items-center gap-3 shadow-2xs">
-                {/* Visual mock QR code */}
-                <div className="bg-slate-100 p-2.5 rounded-xl border-2 border-slate-900 flex flex-col items-center justify-center">
-                  <QrCode className="w-24 h-24 text-slate-900" />
-                  <span className="text-[9px] font-mono font-bold text-slate-650 tracking-wider mt-1.5">
-                    {activeTicket.ticketCode}
-                  </span>
-                </div>
-
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800">{activeTicket.name}</h4>
-                  <p className="text-[10px] text-slate-400 mt-0.5 font-bold">{activeTicket.company}</p>
-                </div>
-
-                <button
-                  onClick={() => handleScanCheckIn(activeTicket)}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 rounded-lg text-xs flex items-center justify-center gap-1 transition-colors"
-                >
-                  <UserCheck className="w-3.5 h-3.5" />
-                  Simulate Rapid Scan & Check-In
-                </button>
-              </div>
-            ) : (
-              <div className="border border-dashed border-slate-200 rounded-xl bg-white p-6 text-center flex flex-col items-center justify-center h-48 text-slate-400">
-                <QrCode className="w-10 h-10 text-slate-300" />
-                <p className="text-xs font-bold text-slate-500 mt-2">No attendee selected</p>
-                <p className="text-[10px] text-slate-400 mt-1 max-w-[150px] leading-relaxed">
-                  Click on an attendee from the queue list on the right to load their pass.
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-4 pt-3 border-t border-slate-200 text-[10px] text-slate-400 flex items-start gap-1.5 leading-normal">
-            <Info className="w-3.5 h-3.5 text-indigo-500 shrink-0 mt-0.5" />
-            <span>Scanning verifies the ticket code, checks database parameters, records a sub-second timestamp, and reduces active queue times.</span>
           </div>
         </div>
-
-        {/* Panel 3: Attendee Register List with Scan Button */}
-        <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex flex-col h-[320px] shadow-2xs">
-          <h3 className="text-sm font-bold text-slate-800 mb-3">On-Site Registration Roster</h3>
-
-          <div className="flex-1 overflow-y-auto space-y-2 pr-1.5">
-            {attendees.map((attendee) => {
-              const isCheckedIn = attendee.status === "Checked-in";
-              return (
-                <div
-                  key={attendee.id}
-                  onClick={() => {
-                    if (!isCheckedIn) setActiveTicket(attendee);
-                  }}
-                  className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all flex items-center justify-between gap-3 ${
-                    isCheckedIn
-                      ? "bg-slate-100 border-slate-200 text-slate-400"
-                      : activeTicket?.id === attendee.id
-                      ? "bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200 shadow-2xs"
-                      : "bg-white border-slate-200 hover:border-slate-350 hover:shadow-2xs"
-                  }`}
-                >
-                  <div className="truncate flex-1">
-                    <span className="text-[11px] font-bold text-slate-800 block truncate">{attendee.name}</span>
-                    <span className="text-[9px] text-slate-400 block truncate font-mono font-semibold">{attendee.company} ({attendee.ticketCode})</span>
-                  </div>
-
-                  <div className="shrink-0 flex items-center">
-                    {isCheckedIn ? (
-                      <span className="text-[9px] bg-emerald-150 text-emerald-850 font-bold px-1.5 py-0.5 rounded border border-emerald-250 flex items-center gap-0.5">
-                        <UserCheck className="w-2.5 h-2.5" />
-                        In
-                      </span>
-                    ) : (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleScanCheckIn(attendee);
-                        }}
-                        className="text-[9px] bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold px-1.5 py-0.5 rounded border border-indigo-150 transition-colors"
-                      >
-                        Quick Check
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

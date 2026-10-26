@@ -2,6 +2,8 @@ export type EventStatus = "Draft" | "Sign-off" | "Live" | "Completed";
 
 export type UserRole = "Super Admin" | "Venue Admin" | "Presenter" | "Volunteer";
 
+export type TabType = "operations" | "rooms" | "checkin" | "itinerary" | "incidents" | "architecture" | "roadmap";
+
 export interface EventDetails {
   id: string;
   name: string;
@@ -53,14 +55,18 @@ export interface VerificationChecklists {
   };
 }
 
+export type AttendeeRole = "Attendee" | "VIP" | "Speaker" | "Staff" | "Organizer";
+
 export interface Attendee {
   id: string;
   name: string;
   email: string;
   company: string;
   ticketCode: string;
+  role: AttendeeRole;
   status: "Registered" | "Checked-in";
   checkInTime: string | null;
+  badgePrinted?: boolean;
 }
 
 export interface ItineraryItem {
@@ -81,4 +87,35 @@ export interface FeedbackItem {
   rating: number; // 1-5
   feedbackText: string;
   timestamp: string;
+}
+
+export interface RoomStatus {
+  id: string;
+  name: string;
+  code: string;
+  floor: string;
+  capacity: number;
+  currentOccupancy: number;
+  avStatus: "Ready" | "Degraded" | "Offline";
+  temperatureC: number;
+  leadTechnician: string;
+  micChecked: boolean;
+  projectorChecked: boolean;
+  screenResolution: string;
+  notes: string;
+}
+
+export type IncidentSeverity = "P0" | "P1" | "P2";
+export type IncidentStatus = "Open" | "Investigating" | "Resolved";
+
+export interface Incident {
+  id: string;
+  title: string;
+  severity: IncidentSeverity;
+  location: string;
+  status: IncidentStatus;
+  reportedBy: string;
+  reportedAt: string;
+  affectedSession?: string;
+  resolutionNotes?: string;
 }

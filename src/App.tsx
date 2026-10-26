@@ -5,19 +5,33 @@ import {
   INITIAL_CHECKLISTS, 
   INITIAL_ATTENDEES, 
   INITIAL_ITINERARY, 
-  INITIAL_FEEDBACK 
+  INITIAL_FEEDBACK,
+  INITIAL_ROOMS,
+  INITIAL_INCIDENTS
 } from "./data";
 import { 
   EventDetails, 
   WorkOrder, 
   VerificationChecklists, 
   Attendee, 
+  AttendeeRole,
   ItineraryItem, 
   FeedbackItem, 
+  RoomStatus,
+  Incident,
+  IncidentStatus,
   UserRole, 
   EventStatus,
-  WorkOrderStatus
+  WorkOrderStatus,
+  TabType
 } from "./types";
+
+import GoogleHeader from "./components/GoogleHeader";
+import CommandPalette from "./components/CommandPalette";
+import BadgeModal from "./components/BadgeModal";
+import RunOfShowExportModal from "./components/RunOfShowExportModal";
+import IncidentDispatcher from "./components/IncidentDispatcher";
+import RoomReadinessMatrix from "./components/RoomReadinessMatrix";
 import WorkOrderEngine from "./components/WorkOrderEngine";
 import ChecklistVerifier from "./components/ChecklistVerifier";
 import CheckInDesk from "./components/CheckInDesk";
@@ -25,50 +39,87 @@ import ItineraryTracker from "./components/ItineraryTracker";
 import PostEventLoop from "./components/PostEventLoop";
 import ArchitectureViewer from "./components/ArchitectureViewer";
 import RoadmapViewer from "./components/RoadmapViewer";
+
 import { 
-  Network, 
-  Database, 
-  Compass, 
-  ShieldCheck, 
-  Sparkles, 
   Activity, 
-  User, 
   Clock, 
-  Briefcase,
-  Layers,
-  HelpCircle,
-  FileSpreadsheet,
-  Zap,
-  CheckCircle,
-  Play
+  Calendar, 
+  MapPin, 
+  CheckCircle2, 
+  FileSpreadsheet, 
+  Radio, 
+  RotateCcw,
+  Sparkles,
+  User,
+  ShieldAlert
 } from "lucide-react";
 
+// LocalStorage Keys
+const STORAGE_KEY_PREFIX = "GOOGLE_EVENT_OPS_HUB_";
+
 export default function App() {
-  // Global States
-  const [event, setEvent] = useState<EventDetails>(INITIAL_EVENT);
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(INITIAL_WORK_ORDERS);
-  const [checklists, setChecklists] = useState<VerificationChecklists>(INITIAL_CHECKLISTS);
-  const [attendees, setAttendees] = useState<Attendee[]>(INITIAL_ATTENDEES);
-  const [itinerary, setItinerary] = useState<ItineraryItem[]>(INITIAL_ITINERARY);
-  const [delayOffset, setDelayOffset] = useState<number>(0);
-  const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>(INITIAL_FEEDBACK);
+  // Helper to load state from localStorage or fallback
+  const loadStored = <T,>(key: string, fallback: T): T => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_PREFIX + key);
+      return stored ? JSON.parse(stored) : fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
+  // Global States with LocalStorage Hydration
+  const [event, setEvent] = useState<EventDetails>(() => loadStored("EVENT", INITIAL_EVENT));
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(() => loadStored("WORK_ORDERS", INITIAL_WORK_ORDERS));
+  const [checklists, setChecklists] = useState<VerificationChecklists>(() => loadStored("CHECKLISTS", INITIAL_CHECKLISTS));
+  const [attendees, setAttendees] = useState<Attendee[]>(() => loadStored("ATTENDEES", INITIAL_ATTENDEES));
+  const [itinerary, setItinerary] = useState<ItineraryItem[]>(() => loadStored("ITINERARY", INITIAL_ITINERARY));
+  const [delayOffset, setDelayOffset] = useState<number>(() => loadStored("DELAY_OFFSET", 0));
+  const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>(() => loadStored("FEEDBACK", INITIAL_FEEDBACK));
+  const [rooms, setRooms] = useState<RoomStatus[]>(() => loadStored("ROOMS", INITIAL_ROOMS));
+  const [incidents, setIncidents] = useState<Incident[]>(() => loadStored("INCIDENTS", INITIAL_INCIDENTS));
   
   // Navigation & Simulation Persona
-  const [activeTab, setActiveTab] = useState<"operations" | "architecture" | "roadmap">("operations");
-  const [currentUserRole, setCurrentUserRole] = useState<UserRole>("Super Admin");
+  const [activeTab, setActiveTab] = useState<TabType>("operations");
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole>(() => loadStored("USER_ROLE", "Super Admin"));
 
-  // UTC Live Clock State
-  const [liveTime, setLiveTime] = useState("");
+  // Modals state
+  const [selectedBadgeAttendee, setSelectedBadgeAttendee] = useState<Attendee | null>(null);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  // UTC and Local Singapore Time Clocks
+  const [liveUtcTime, setLiveUtcTime] = useState("");
+  const [liveLocalTime, setLiveLocalTime] = useState("");
 
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      setLiveTime(now.toUTCString().replace("GMT", "UTC"));
+      setLiveUtcTime(now.toUTCString().replace("GMT", "UTC").split(" ").slice(4, 5)[0]);
+      setLiveLocalTime(now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
     };
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Sync to LocalStorage on changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_PREFIX + "EVENT", JSON.stringify(event));
+      localStorage.setItem(STORAGE_KEY_PREFIX + "WORK_ORDERS", JSON.stringify(workOrders));
+      localStorage.setItem(STORAGE_KEY_PREFIX + "CHECKLISTS", JSON.stringify(checklists));
+      localStorage.setItem(STORAGE_KEY_PREFIX + "ATTENDEES", JSON.stringify(attendees));
+      localStorage.setItem(STORAGE_KEY_PREFIX + "ITINERARY", JSON.stringify(itinerary));
+      localStorage.setItem(STORAGE_KEY_PREFIX + "DELAY_OFFSET", JSON.stringify(delayOffset));
+      localStorage.setItem(STORAGE_KEY_PREFIX + "FEEDBACK", JSON.stringify(feedbacks));
+      localStorage.setItem(STORAGE_KEY_PREFIX + "ROOMS", JSON.stringify(rooms));
+      localStorage.setItem(STORAGE_KEY_PREFIX + "INCIDENTS", JSON.stringify(incidents));
+      localStorage.setItem(STORAGE_KEY_PREFIX + "USER_ROLE", JSON.stringify(currentUserRole));
+    } catch (e) {
+      console.warn("LocalStorage save error:", e);
+    }
+  }, [event, workOrders, checklists, attendees, itinerary, delayOffset, feedbacks, rooms, incidents, currentUserRole]);
 
   // Handlers
   const handleUpdateWorkOrderStatus = (id: string, status: WorkOrderStatus) => {
@@ -111,21 +162,29 @@ export default function App() {
     );
   };
 
-  const handleRegisterNewAttendee = (name: string, email: string, company: string) => {
+  const handleRegisterNewAttendee = (name: string, email: string, company: string, role: AttendeeRole = "Attendee") => {
     const nextId = `att-${attendees.length + 1}`;
     const code = `H2S-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-    setAttendees((prev) => [
-      ...prev,
-      {
-        id: nextId,
-        name,
-        email,
-        company,
-        ticketCode: code,
-        status: "Registered",
-        checkInTime: null,
-      },
-    ]);
+    const newAttendee: Attendee = {
+      id: nextId,
+      name,
+      email,
+      company,
+      ticketCode: code,
+      role,
+      status: "Checked-in",
+      checkInTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      badgePrinted: true,
+    };
+    setAttendees((prev) => [newAttendee, ...prev]);
+    // Automatically open badge for walk-in
+    setSelectedBadgeAttendee(newAttendee);
+  };
+
+  const handleMarkBadgePrinted = (id: string) => {
+    setAttendees((prev) =>
+      prev.map((att) => (att.id === id ? { ...att, badgePrinted: true } : att))
+    );
   };
 
   const handleUpdateDelayOffset = (minutes: number) => {
@@ -149,160 +208,180 @@ export default function App() {
     ]);
   };
 
-  // Check roles permissions overview
+  const handleUpdateRoom = (id: string, updater: (prev: RoomStatus) => RoomStatus) => {
+    setRooms((prev) => prev.map((r) => (r.id === id ? updater(r) : r)));
+  };
+
+  const handleAddIncident = (newInc: Omit<Incident, "id" | "reportedAt">) => {
+    const nextId = `inc-${incidents.length + 1}`;
+    const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    setIncidents((prev) => [
+      {
+        ...newInc,
+        id: nextId,
+        reportedAt: timestamp,
+      },
+      ...prev,
+    ]);
+  };
+
+  const handleUpdateIncidentStatus = (id: string, status: IncidentStatus, resolutionNotes?: string) => {
+    setIncidents((prev) =>
+      prev.map((inc) =>
+        inc.id === id
+          ? {
+              ...inc,
+              status,
+              resolutionNotes: resolutionNotes || inc.resolutionNotes,
+            }
+          : inc
+      )
+    );
+  };
+
+  // Backup & Reset Handlers
+  const handleDownloadBackup = () => {
+    const stateSnapshot = {
+      exportedAt: new Date().toISOString(),
+      event,
+      workOrders,
+      checklists,
+      attendees,
+      itinerary,
+      delayOffset,
+      rooms,
+      incidents,
+      feedbacks,
+    };
+    const jsonStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(stateSnapshot, null, 2));
+    const downloadAnchor = document.createElement("a");
+    downloadAnchor.setAttribute("href", jsonStr);
+    downloadAnchor.setAttribute("download", `Google_Event_Ops_Snapshot_${new Date().toISOString().slice(0, 10)}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  const handleResetDefaults = () => {
+    if (window.confirm("Reset all operational data to verified demo defaults? Local modifications will be cleared.")) {
+      localStorage.clear();
+      setEvent(INITIAL_EVENT);
+      setWorkOrders(INITIAL_WORK_ORDERS);
+      setChecklists(INITIAL_CHECKLISTS);
+      setAttendees(INITIAL_ATTENDEES);
+      setItinerary(INITIAL_ITINERARY);
+      setDelayOffset(0);
+      setFeedbacks(INITIAL_FEEDBACK);
+      setRooms(INITIAL_ROOMS);
+      setIncidents(INITIAL_INCIDENTS);
+      setCurrentUserRole("Super Admin");
+      setActiveTab("operations");
+    }
+  };
+
+  // Role permissions description
   const getRolePermissionsDescription = (role: UserRole) => {
     switch (role) {
       case "Super Admin":
-        return "Hack2Skill Lead. Complete authorization across logistics, checklist overview, delay cascade tools, and feedback loops.";
+        return "Hack2Skill Global Lead. Full authorization: broadcast P0 alerts, sign-off oversight, itinerary delay cascade, and Run of Show export.";
       case "Venue Admin":
-        return "Google Office Admins. Responsible for checking power grids, pantry inventories, chairs setup, and signing off the Event DDL.";
+        return "Google Office Operations Admins. Inspect physical AV power grids, room telemetry, HVAC setpoints, and sign-off venue DDL.";
       case "Presenter":
-        return "Guest Speaker. Restrictive access: Upload presentation PDF deck materials, see live timeline warnings, and request schedule delay cascades.";
+        return "Guest Speaker. Stage access: Upload presentation PDF decks, view stage confidence timer, and monitor schedule offsets.";
       case "Volunteer":
-        return "Check-in Staff. Direct access to scanning registrant QR codes, direct registrations, and queue traffic logs.";
+        return "Front Desk Check-in Staff. Fast attendee verification, QR credentials, walk-in registration, and thermal badge issuance.";
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans antialiased text-slate-800 selection:bg-indigo-500 selection:text-white" id="main-app-shell">
-      
-      {/* Upper Status strip for multi-role simulation */}
-      <div className="bg-slate-900 text-slate-300 py-3 px-6 text-xs flex flex-col md:flex-row items-center justify-between gap-4 border-b border-slate-950">
-        <div className="flex items-center gap-2.5">
-          <span className="bg-indigo-500 text-white font-bold px-2 py-0.5 rounded text-[10px] tracking-wider uppercase">SIMULATOR ACTIVE</span>
-          <span className="text-slate-400 font-medium">Select active operational role to view tiered access layout:</span>
-        </div>
+    <div className="min-h-screen bg-[#f8f9fa] flex flex-col font-sans antialiased text-[#202124]">
+      {/* Google Cloud Header */}
+      <GoogleHeader
+        event={event}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        currentUserRole={currentUserRole}
+        onRoleChange={setCurrentUserRole}
+        liveUtcTime={liveUtcTime}
+        liveLocalTime={liveLocalTime}
+        delayOffset={delayOffset}
+        incidents={incidents}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        onDownloadBackup={handleDownloadBackup}
+        onResetDefaults={handleResetDefaults}
+        onTriggerSOS={() => {
+          setActiveTab("incidents");
+        }}
+      />
 
-        {/* Interactive role toggles */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {(["Super Admin", "Venue Admin", "Presenter", "Volunteer"] as UserRole[]).map((r) => (
-            <button
-              key={r}
-              onClick={() => setCurrentUserRole(r)}
-              className={`px-3 py-1 font-bold rounded-lg transition-all text-[11px] cursor-pointer ${
-                currentUserRole === r
-                  ? "bg-indigo-600 text-white shadow-md scale-102"
-                  : "bg-slate-800 text-slate-400 hover:bg-slate-750 hover:text-white"
-              }`}
-              id={`role-select-${r.toLowerCase().replace(" ", "-")}`}
-            >
-              {r}
-            </button>
-          ))}
+      {/* Role Context Notification Bar */}
+      <div className="bg-[#e8f0fe]/60 border-b border-[#d2e3fc] py-2.5 px-6 flex items-center justify-between text-xs text-[#174ea6]">
+        <div className="flex items-center gap-2">
+          <User className="w-4 h-4 text-[#1a73e8] shrink-0" />
+          <span>
+            <strong>Simulating: {currentUserRole}</strong> — {getRolePermissionsDescription(currentUserRole)}
+          </span>
         </div>
+        <button
+          onClick={() => setIsCommandPaletteOpen(true)}
+          className="hidden md:inline-flex items-center gap-1 text-[11px] font-semibold text-[#1a73e8] hover:underline cursor-pointer"
+        >
+          <span>Quick Actions (Ctrl+K)</span>
+        </button>
       </div>
 
-      {/* Primary header */}
-      <header className="bg-white border-b border-slate-200 py-4 px-6 shadow-3xs flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="bg-indigo-600 p-2.5 rounded-2xl text-white shadow-xs animate-pulse-slow">
-            <Activity className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-display font-bold text-slate-900 tracking-tight">Event Operations & Coordination Hub</h1>
-              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 uppercase tracking-widest ${
-                event.status === "Live" 
-                  ? "bg-rose-50 text-rose-600 border-rose-200" 
-                  : event.status === "Sign-off"
-                  ? "bg-indigo-50 text-indigo-700 border-indigo-200"
-                  : "bg-slate-55 text-slate-605 border-slate-200"
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${event.status === "Live" ? "bg-rose-500 animate-ping" : "bg-slate-400"}`} />
-                Status: {event.status}
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1 font-semibold">
-              <Clock className="w-3.5 h-3.5 text-slate-400" />
-              <span>UTC time: {liveTime || "Syncing..."}</span>
-            </p>
-          </div>
-        </div>
-
-        {/* Tabs selector */}
-        <nav className="flex items-center gap-2 bg-slate-100 p-1 rounded-2xl border border-slate-200">
-          <button
-            onClick={() => setActiveTab("operations")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === "operations"
-                ? "bg-white text-indigo-600 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-            id="tab-btn-operations"
-          >
-            <Layers className="w-4 h-4" />
-            Operations Dashboard
-          </button>
-          <button
-            onClick={() => setActiveTab("architecture")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === "architecture"
-                ? "bg-white text-indigo-600 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-            id="tab-btn-architecture"
-          >
-            <Database className="w-4 h-4" />
-            System Architecture
-          </button>
-          <button
-            onClick={() => setActiveTab("roadmap")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === "roadmap"
-                ? "bg-white text-indigo-600 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-            id="tab-btn-roadmap"
-          >
-            <Compass className="w-4 h-4" />
-            Launch Roadmap
-          </button>
-        </nav>
-      </header>
-
-      {/* Role explanation alert banner */}
-      <div className="bg-indigo-50/40 border-b border-indigo-100 py-3.5 px-6 flex items-start gap-3">
-        <User className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
-        <div className="space-y-0.5">
-          <p className="text-xs font-bold text-indigo-950">Active Simulation Role Identity: {currentUserRole}</p>
-          <p className="text-[11px] text-indigo-900 leading-relaxed font-semibold">
-            {getRolePermissionsDescription(currentUserRole)} You can toggle between roles above to experience separate operational workflows!
-          </p>
-        </div>
-      </div>
-
-      {/* Main Content Area */}
-      <main className="flex-1 p-6 space-y-6 max-w-7xl mx-auto w-full">
+      {/* Main Content Viewport */}
+      <main className="flex-1 p-4 sm:p-6 max-w-7xl mx-auto w-full space-y-6">
+        
+        {/* TAB 1: OPERATIONS DASHBOARD */}
         {activeTab === "operations" && (
           <div className="space-y-6">
-            
-            {/* Row 1: Event Summary Bar */}
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-5 flex flex-col md:flex-row items-center justify-between gap-4">
+            {/* Event Summary Bar */}
+            <div className="bg-white rounded-2xl border border-[#dadce0] p-5 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="space-y-1 text-center md:text-left">
-                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Event Coordination Bind</span>
-                <h3 className="text-base font-bold text-slate-800">{event.name}</h3>
-                <p className="text-xs text-slate-500 font-bold">Host: {event.venueName} • Organizer: {event.organizer}</p>
+                <div className="flex items-center gap-2 justify-center md:justify-start">
+                  <span className="text-[10px] uppercase font-semibold text-[#5f6368] tracking-wider">
+                    Google Singapore Level 30
+                  </span>
+                  <span className="text-[#dadce0]">·</span>
+                  <span className="text-xs font-mono font-medium text-[#1e8e3e]">
+                    Event Live Sync Active
+                  </span>
+                </div>
+                <h2 className="text-lg font-bold text-[#202124]">{event.name}</h2>
+                <p className="text-xs text-[#5f6368]">
+                  Venue: <strong>{event.venueName}</strong> · Lead Organizer: <strong>{event.organizer}</strong>
+                </p>
               </div>
 
-              <div className="flex gap-4 flex-wrap justify-center text-xs">
-                <div className="bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-center min-w-[120px] shadow-3xs">
-                  <span className="block text-slate-400 font-bold text-[9px] uppercase tracking-wider">Date</span>
-                  <span className="font-mono font-bold text-slate-700 mt-0.5 block">{event.date}</span>
+              <div className="flex gap-3 flex-wrap justify-center text-xs">
+                <div className="bg-[#f8f9fa] border border-[#e8eaed] px-3.5 py-2 rounded-xl text-center min-w-[110px]">
+                  <span className="block text-[#70757a] font-medium text-[10px] uppercase tracking-wider">Event Date</span>
+                  <span className="font-mono font-semibold text-[#202124] mt-0.5 block">{event.date}</span>
                 </div>
-                <div className="bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-center min-w-[120px] shadow-3xs">
-                  <span className="block text-slate-400 font-bold text-[9px] uppercase tracking-wider">Time window</span>
-                  <span className="font-mono font-bold text-slate-700 mt-0.5 block">{event.timeWindow}</span>
+                <div className="bg-[#f8f9fa] border border-[#e8eaed] px-3.5 py-2 rounded-xl text-center min-w-[110px]">
+                  <span className="block text-[#70757a] font-medium text-[10px] uppercase tracking-wider">Time Window</span>
+                  <span className="font-mono font-semibold text-[#202124] mt-0.5 block">{event.timeWindow}</span>
                 </div>
-                <div className="bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-center min-w-[120px] shadow-3xs">
-                  <span className="block text-slate-400 font-bold text-[9px] uppercase tracking-wider">Delay Offset</span>
-                  <span className={`font-mono font-bold mt-0.5 block ${delayOffset > 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                <div className="bg-[#f8f9fa] border border-[#e8eaed] px-3.5 py-2 rounded-xl text-center min-w-[110px]">
+                  <span className="block text-[#70757a] font-medium text-[10px] uppercase tracking-wider">Delay Offset</span>
+                  <span className={`font-mono font-bold mt-0.5 block ${delayOffset > 0 ? "text-[#d93025]" : "text-[#1e8e3e]"}`}>
                     +{delayOffset} mins
                   </span>
                 </div>
+                <div className="flex items-center">
+                  <button
+                    onClick={() => setIsExportModalOpen(true)}
+                    className="px-3 py-2 bg-white border border-[#dadce0] hover:bg-[#f1f3f4] text-[#1a73e8] rounded-xl font-medium text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <span>Run of Show</span>
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Row 2: Checklist Verifier & Signature Pad */}
+            {/* Checklist Verifier & Venue Turnover Sign-off */}
             <ChecklistVerifier
               checklists={checklists}
               currentUserRole={currentUserRole}
@@ -311,52 +390,122 @@ export default function App() {
               onUpdateEventStatus={handleUpdateEventStatus}
             />
 
-            {/* Row 3: Work Order State Machine */}
+            {/* Work Order State Machine Engine */}
             <WorkOrderEngine
               workOrders={workOrders}
               onUpdateWorkOrderStatus={handleUpdateWorkOrderStatus}
               onAddWorkOrder={handleAddWorkOrder}
             />
 
-            {/* Row 4: Check-In desk & Attendee onboarding */}
-            <CheckInDesk
-              attendees={attendees}
-              currentUserRole={currentUserRole}
-              onCheckInAttendee={handleCheckInAttendee}
-              onRegisterNewAttendee={handleRegisterNewAttendee}
-            />
-
-            {/* Row 5: Presenter Timeline Cascade Tracker */}
-            <ItineraryTracker
-              itinerary={itinerary}
-              currentUserRole={currentUserRole}
-              delayOffset={delayOffset}
-              onUpdateDelayOffset={handleUpdateDelayOffset}
-              onUpdateItineraryItem={handleUpdateItineraryItem}
-            />
-
-            {/* Row 6: Post-Event Loop */}
+            {/* Post Event Loop & Feedback */}
             <PostEventLoop
               feedbacks={feedbacks}
               onAddFeedback={handleAddFeedback}
             />
-
           </div>
         )}
 
+        {/* TAB 2: VENUE FLOOR & ROOM MATRIX */}
+        {activeTab === "rooms" && (
+          <RoomReadinessMatrix
+            rooms={rooms}
+            currentUserRole={currentUserRole}
+            onUpdateRoom={handleUpdateRoom}
+          />
+        )}
+
+        {/* TAB 3: CHECK-IN DESK & BADGE ISSUANCE */}
+        {activeTab === "checkin" && (
+          <CheckInDesk
+            attendees={attendees}
+            currentUserRole={currentUserRole}
+            onCheckInAttendee={handleCheckInAttendee}
+            onRegisterNewAttendee={handleRegisterNewAttendee}
+            onOpenBadge={(att) => setSelectedBadgeAttendee(att)}
+          />
+        )}
+
+        {/* TAB 4: ITINERARY & RUN OF SHOW */}
+        {activeTab === "itinerary" && (
+          <ItineraryTracker
+            itinerary={itinerary}
+            currentUserRole={currentUserRole}
+            delayOffset={delayOffset}
+            onUpdateDelayOffset={handleUpdateDelayOffset}
+            onUpdateItineraryItem={handleUpdateItineraryItem}
+            onOpenExportModal={() => setIsExportModalOpen(true)}
+          />
+        )}
+
+        {/* TAB 5: INCIDENT DISPATCHER & SOS BROADCAST */}
+        {activeTab === "incidents" && (
+          <IncidentDispatcher
+            incidents={incidents}
+            currentUserRole={currentUserRole}
+            onAddIncident={handleAddIncident}
+            onUpdateIncidentStatus={handleUpdateIncidentStatus}
+          />
+        )}
+
+        {/* TAB 6: SYSTEM ARCHITECTURE */}
         {activeTab === "architecture" && (
           <ArchitectureViewer />
         )}
 
+        {/* TAB 7: LAUNCH ROADMAP */}
         {activeTab === "roadmap" && (
           <RoadmapViewer />
         )}
+
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 py-6 px-6 text-center text-xs text-gray-400 mt-12">
-        <p>© 2026 Event Operations Hub. Designed for Hack2Skill and host Facilities Admins.</p>
-        <p className="mt-1">Real-time sync simulation environment powered by React and Tailwind.</p>
+      {/* Global Attendee Badge Modal */}
+      {selectedBadgeAttendee && (
+        <BadgeModal
+          attendee={selectedBadgeAttendee}
+          event={event}
+          onClose={() => setSelectedBadgeAttendee(null)}
+          onMarkPrinted={handleMarkBadgePrinted}
+        />
+      )}
+
+      {/* Global Run of Show Export Modal */}
+      {isExportModalOpen && (
+        <RunOfShowExportModal
+          itinerary={itinerary}
+          delayOffset={delayOffset}
+          event={event}
+          onClose={() => setIsExportModalOpen(false)}
+        />
+      )}
+
+      {/* Global Command Palette (Ctrl+K) */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onSelectTab={setActiveTab}
+        onSelectRole={setCurrentUserRole}
+        onOpenBadge={(att) => setSelectedBadgeAttendee(att)}
+        onOpenExport={() => setIsExportModalOpen(true)}
+        onOpenIncidentModal={() => setActiveTab("incidents")}
+        attendees={attendees}
+      />
+
+      {/* Sleek Minimalist Google Footer */}
+      <footer className="bg-white border-t border-[#dadce0] py-5 px-6 text-xs text-[#5f6368] mt-12 no-print">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#1e8e3e]" />
+            <span>Google Cloud Event Operations Hub · Hack2Skill Cross-Org Coordination</span>
+          </div>
+          <div className="flex items-center gap-4 text-[#70757a]">
+            <span>Level 30 Hall of Cloud</span>
+            <span>·</span>
+            <span>Local Storage Engine Active</span>
+            <span>·</span>
+            <span>Production SLA: 99.99%</span>
+          </div>
+        </div>
       </footer>
     </div>
   );

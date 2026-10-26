@@ -1,4 +1,13 @@
-import { EventDetails, WorkOrder, VerificationChecklists, Attendee, ItineraryItem, FeedbackItem } from "./types";
+import { 
+  EventDetails, 
+  WorkOrder, 
+  VerificationChecklists, 
+  Attendee, 
+  ItineraryItem, 
+  FeedbackItem, 
+  RoomStatus, 
+  Incident 
+} from "./types";
 
 export const INITIAL_EVENT: EventDetails = {
   id: "evt-101",
@@ -87,15 +96,119 @@ export const INITIAL_CHECKLISTS: VerificationChecklists = {
 };
 
 export const INITIAL_ATTENDEES: Attendee[] = [
-  { id: "att-1", name: "David Chen", email: "david.chen@techcorp.io", company: "Aether AI", ticketCode: "H2S-A492B", status: "Registered", checkInTime: null },
-  { id: "att-2", name: "Sarah Jenkins", email: "sarah.j@google.com", company: "Google Developers", ticketCode: "H2S-G391X", status: "Registered", checkInTime: null },
-  { id: "att-3", name: "Muhammad Rizwan", email: "rizwan@dataincept.com", company: "DataIncept", ticketCode: "H2S-D721A", status: "Registered", checkInTime: null },
-  { id: "att-4", name: "Amara Okeke", email: "amara@devforge.net", company: "DevForge Studio", ticketCode: "H2S-F833Q", status: "Registered", checkInTime: null },
-  { id: "att-5", name: "Hiroshi Sato", email: "hiroshi.s@cybernexus.jp", company: "CyberNexus KK", ticketCode: "H2S-C119W", status: "Registered", checkInTime: null },
-  { id: "att-6", name: "Elena Rostova", email: "elena.r@neuralpulse.ai", company: "NeuralPulse", ticketCode: "H2S-N581P", status: "Registered", checkInTime: null },
-  { id: "att-7", name: "Marcus Aurelius", email: "marcus.a@stoictech.com", company: "StoicTech Solutions", ticketCode: "H2S-S999Z", status: "Registered", checkInTime: null },
-  { id: "att-8", name: "Lily Dupont", email: "lily.d@creativespark.fr", company: "CreativeSpark Labs", ticketCode: "H2S-C822V", status: "Registered", checkInTime: null },
+  { id: "att-1", name: "David Chen", email: "david.chen@techcorp.io", company: "Aether AI", ticketCode: "H2S-A492B", role: "Attendee", status: "Registered", checkInTime: null, badgePrinted: false },
+  { id: "att-2", name: "Sarah Jenkins", email: "sarah.j@google.com", company: "Google Developers", ticketCode: "H2S-G391X", role: "Speaker", status: "Checked-in", checkInTime: "08:45 AM", badgePrinted: true },
+  { id: "att-3", name: "Muhammad Rizwan", email: "rizwan@dataincept.com", company: "DataIncept", ticketCode: "H2S-D721A", role: "VIP", status: "Registered", checkInTime: null, badgePrinted: false },
+  { id: "att-4", name: "Amara Okeke", email: "amara@devforge.net", company: "DevForge Studio", ticketCode: "H2S-F833Q", role: "Attendee", status: "Checked-in", checkInTime: "08:52 AM", badgePrinted: true },
+  { id: "att-5", name: "Hiroshi Sato", email: "hiroshi.s@cybernexus.jp", company: "CyberNexus KK", ticketCode: "H2S-C119W", role: "Attendee", status: "Registered", checkInTime: null, badgePrinted: false },
+  { id: "att-6", name: "Elena Rostova", email: "elena.r@neuralpulse.ai", company: "NeuralPulse", ticketCode: "H2S-N581P", role: "VIP", status: "Registered", checkInTime: null, badgePrinted: false },
+  { id: "att-7", name: "Dr. Catherine Vance", email: "catherine.v@deepmind.com", company: "Google DeepMind", ticketCode: "H2S-V100S", role: "Speaker", status: "Checked-in", checkInTime: "08:30 AM", badgePrinted: true },
+  { id: "att-8", name: "Marcus Aurelius", email: "marcus.a@stoictech.com", company: "StoicTech Solutions", ticketCode: "H2S-S999Z", role: "Staff", status: "Checked-in", checkInTime: "08:15 AM", badgePrinted: true },
+  { id: "att-9", name: "Lily Dupont", email: "lily.d@creativespark.fr", company: "CreativeSpark Labs", ticketCode: "H2S-C822V", role: "Attendee", status: "Registered", checkInTime: null, badgePrinted: false },
 ];
+
+export const INITIAL_ROOMS: RoomStatus[] = [
+  {
+    id: "room-1",
+    name: "Auditorium Alpha (Stage Hall)",
+    code: "AUD-L30",
+    floor: "Level 30 Central",
+    capacity: 150,
+    currentOccupancy: 84,
+    avStatus: "Ready",
+    temperatureC: 21.5,
+    leadTechnician: "Marcus (Stage AV Lead)",
+    micChecked: true,
+    projectorChecked: true,
+    screenResolution: "4K UHD Main LED Wall",
+    notes: "Lapel mics recharged. Stage confidence monitor active.",
+  },
+  {
+    id: "room-2",
+    name: "Workshop Hall Beta",
+    code: "WS-W30",
+    floor: "Level 30 West Wing",
+    capacity: 60,
+    currentOccupancy: 42,
+    avStatus: "Ready",
+    temperatureC: 22.0,
+    leadTechnician: "Sandeep (IT Support)",
+    micChecked: true,
+    projectorChecked: true,
+    screenResolution: "Dual 1080p Sony Beamers",
+    notes: "Surge-protected power strips deployed at all 15 project tables.",
+  },
+  {
+    id: "room-3",
+    name: "Catering & Atrium Lounge",
+    code: "ATR-N30",
+    floor: "Level 30 North Terrace",
+    capacity: 180,
+    currentOccupancy: 65,
+    avStatus: "Ready",
+    temperatureC: 23.0,
+    leadTechnician: "Dave (Pantry Services)",
+    micChecked: false,
+    projectorChecked: false,
+    screenResolution: "Digital Signage Displays",
+    notes: "Espresso bars online. Cold brew fridges 100% stocked.",
+  },
+  {
+    id: "room-4",
+    name: "Speaker Greenroom",
+    code: "GR-E30",
+    floor: "Level 30 Executive Suite",
+    capacity: 20,
+    currentOccupancy: 6,
+    avStatus: "Ready",
+    temperatureC: 20.5,
+    leadTechnician: "Alex (Facilities)",
+    micChecked: true,
+    projectorChecked: true,
+    screenResolution: "65-inch 4K Preview Display",
+    notes: "Private high-speed network for deck revisions and AV checks.",
+  },
+  {
+    id: "room-5",
+    name: "Registration Foyer",
+    code: "REG-L30",
+    floor: "Level 30 Lobby",
+    capacity: 100,
+    currentOccupancy: 28,
+    avStatus: "Ready",
+    temperatureC: 22.2,
+    leadTechnician: "Maria (Front Desk Lead)",
+    micChecked: false,
+    projectorChecked: false,
+    screenResolution: "Welcome Kiosks",
+    notes: "Thermal badge printers connected to high-speed guest network.",
+  },
+];
+
+export const INITIAL_INCIDENTS: Incident[] = [
+  {
+    id: "inc-1",
+    title: "Projector HDMI handshake latency on Stage Alpha",
+    severity: "P2",
+    location: "Auditorium Alpha",
+    status: "Investigating",
+    reportedBy: "Marcus (Stage AV)",
+    reportedAt: "09:42 AM",
+    affectedSession: "Technical Session (Dr. Catherine)",
+    resolutionNotes: "Calibrating 4K matrix switch port 3.",
+  },
+  {
+    id: "inc-2",
+    title: "Level 30 pantry oat milk replenishment",
+    severity: "P2",
+    location: "Catering & Atrium",
+    status: "Resolved",
+    reportedBy: "Maria (Facilities)",
+    reportedAt: "09:15 AM",
+    resolutionNotes: "Restocked 6 cartons from central cold storage.",
+  },
+];
+
 
 export const INITIAL_ITINERARY: ItineraryItem[] = [
   {
